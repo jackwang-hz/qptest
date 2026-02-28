@@ -1,0 +1,35 @@
+#pragma once
+#include <vector>
+#include <cstdint>
+
+enum class CardType {
+    Invalid,
+    Single,      // 单张
+    Pair,        // 对子
+    Three,       // 三张
+    ThreeWithPair, // 三带二
+    Straight,    // 顺子 (>=5张)
+    DoubleStraight, // 双顺 (>=3连对)
+    TripleStraight, // 三顺 (>=2连三张)
+    Bomb,        // 炸弹 (4张及以上同点数)
+    Rocket,      // 天王炸 (大小王)
+    // 掼蛋中同花顺视为特殊炸弹
+};
+
+// 单张牌表示：0-51表示普通牌（0-12黑桃，13-25红桃...），52小王，53大王
+using Card = uint8_t;
+
+// 牌型判断结果
+struct CardPattern {
+    CardType type = CardType::Invalid;
+    uint8_t mainValue = 0;     // 主牌点数（如对子的点数，炸弹的点数）
+    uint8_t extraValue = 0;    // 附加点数（如三带二中对子的点数）
+    size_t count = 0;          // 牌张数
+    std::vector<Card> cards;   // 原始牌序列（已排序）
+};
+
+// 判断一手牌的类型（传入已排序的牌）
+CardPattern CheckCards(const std::vector<Card>& cards);
+
+// 比较两手牌的大小（假设牌型已判断，且符合规则）
+bool IsGreater(const CardPattern& last, const CardPattern& cur);
