@@ -1,0 +1,101 @@
+#include "CardType.h"
+#include <algorithm>
+#include <map>
+
+static int GetCardPoint(Card c) {
+    if (c <= 51) return c % 13 + 1;  // 1-13 (A-K)
+    if (c == 52) return 14;          // 小王
+    if (c == 53) return 15;          // 大王
+    return 0;
+}
+
+// 简易版牌型判断（只判断基本类型，完整版需处理同花顺、逢人配等）
+CardPattern CheckCards(const std::vector<Card>& cards) {
+    CardPattern pattern;
+    pattern.cards = cards;
+    pattern.count = cards.size();
+    if (cards.empty()) return pattern;
+
+    // 统计点数频率
+    std::map<int, int> pointCount;
+    for (Card c : cards) {
+        pointCount[GetCardPoint(c)]++;
+    }
+
+    if (cards.size() == 1) {
+        pattern.type = CardType::Single;
+        pattern.mainValue = pointCount.begin()->first;
+    }
+    else if (cards.size() == 2) {
+        if (pointCount.size() == 1) {
+            pattern.type = CardType::Pair;
+            pattern.mainValue = pointCount.begin()->first;
+        }
+    }
+    else if (cards.size() == 3) {
+        if (pointCount.size() == 1) {
+            pattern.type = CardType::Three;
+            pattern.mainValue = pointCount.begin()->first;
+        }
+    }
+    else if (cards.size() == 5) {
+        // 可能的三带二
+        if (pointCount.size() == 2) {
+            auto it = pointCount.begin();
+            int v1 = it->first, c1 = it->second;
+            ++it;
+            int v2 = it->first, c2 = it->second;
+            if ((c1 == 3 && c2 == 2) || (c1 == 2 && c2 == 3)) {
+                pattern.type = CardType::ThreeWithPair;
+                pattern.mainValue = (c1 == 3) ? v1 : v2;
+                pattern.extraValue = (c1 == 2) ? v1 : v2;
+            }
+        }
+    }
+    // 炸弹（4张以上同点）
+    if (pointCount.size() == 1 && cards.size() >= 4) {
+        pattern.type = CardType::Bomb;
+        pattern.mainValue = pointCount.begin()->first;
+    }
+    // 天王炸
+    if (cards.size() == 4 && pointCount.count(14) && pointCount.count(15)) {
+        pattern.type = CardType::Rocket;
+        pattern.mainValue = 16; // 火箭最大
+    }
+    // 其他类型（顺子、双顺等）需额外判断连续性和花色
+    // ... 省略实现
+
+    return pattern;
+}
+
+bool IsGreater(const CardPattern& last, const CardPattern& cur) {
+    // 不同类型：炸弹和火箭可以压其他牌型，否则不可压
+    if (last.type != cur.type) {
+        // 火箭最大
+        if (cur.type == CardType::Rocket) return true;
+        if (last.type == CardType::Rocket) return false;
+        // 炸弹可以压其他非炸弹
+        if (cur.type == CardType::Bomb && last.type != CardType::Bomb) return true;
+        if (last.type == CardType::Bomb && cur.type != CardType::Bomb) return false;
+        // 其他类型无法比较
+        return false;
+    }
+    // 同类型比较
+    switch (cur.type) {
+        case CardType::Single:
+        case CardType::Pair:
+        case CardType::Three:
+        case CardType::Bomb:
+        case CardType::Rocket:
+            return cur.mainValue > last.mainValue;
+        case CardType::ThreeWithPair:
+            // 先比较三张部分点数，相同再比对子
+            if (cur.mainValue != last.mainValue)
+                return cur.mainValue > last.mainValue;
+            else
+                return cur.extraValue > last.extraValue;
+        // 顺子类比较长度和最大牌（需实现）
+        default:
+            return false;
+    }
+}
